@@ -6,6 +6,10 @@ https://github.com/galvanized/io_kspblender.git
 
 https://github.com/taniwha/io_object_mu.git
 
+maybe (later):
+
+https://github.com/taniwha/cfgnode.git
+
 # next steps
 
 integrate this shader into the script
