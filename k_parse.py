@@ -11,21 +11,29 @@ LINE_CLOSE_BRAK = 3
 LINE_ELEMENT_TYPE = 4
 
 re_blank = re.compile("^\\s*$")
-re_attribute = re.compile("^\\s*([\\S]+)\\s*=\\s*([\\S]+)\\s*$")
+re_attribute = re.compile("^\\s*([\\S]+)\\s*=\\s*(.*?)\\s*$")
 re_open_brak = re.compile("^\\s*(\\{)\\s*$")
 re_close_brak = re.compile("^\\s*(\\})\\s*$")
-re_element_type = re.compile("^\\s*([a-zA-Z]+)\\s*$")
+re_element_type = re.compile("^\\s*([a-zA-Z_/0-9]+)\\s*$")
 
-type_re_map = {
-    LINE_BLANK:re_blank,
-    LINE_ATTRIBUTE:re_attribute,
-    LINE_OPEN_BRAK:re_open_brak,
-    LINE_CLOSE_BRAK:re_close_brak,
-    LINE_ELEMENT_TYPE:re_element_type,
-}
+from collections import OrderedDict
 
+type_re_map = OrderedDict(
+[
+    (LINE_BLANK,re_blank),
+    (LINE_ATTRIBUTE,re_attribute),
+    (LINE_OPEN_BRAK,re_open_brak),
+    (LINE_CLOSE_BRAK,re_close_brak),
+    (LINE_ELEMENT_TYPE,re_element_type)
+])
 
-multiple_allowed = set(["link","attN","sym"])
+from collections import defaultdict
+multiple_allowed = defaultdict(set)
+multiple_allowed["Tech"] = set(["part"])
+multiple_allowed["PART"] = set(["link","attN","sym"])
+multiple_allowed["CONTRACT"] = set(["body"])
+multiple_allowed["sizeCurve"] = set(["key"])
+
 
 #link is for parts that the current part is parent of.
 #attN is for parts that are somehow attached to the current part, could be parent or child.
@@ -45,25 +53,29 @@ def next_token_iterator(filelike):
 
 
 
-KSP_SHIP_DOCUMENT_NAMESPACE = "http://squad.com/ksp_ship"
-KSP_SHIP_DOCUMENT_QUALNAME  = "ship"
-KSP_SHIP_DOCUMENT_DOCTYPE   = None
+KSP_XML_BASE = "http://squad.com/ksp_ship"
+
+#namespace, doctype
+ksp_doctype_lookup = {
+    "CRAFT": (KSP_XML_BASE, None),
+    "GAME": (KSP_XML_BASE, None),
+    None: (KSP_XML_BASE,None)
+}
+
+def new_ksp_document(dom_imp, root_node):
+    namespace, doctype = ksp_doctype_lookup.get(root_node,ksp_doctype_lookup.get(None))
+    return dom_imp.createDocument(namespace,root_node,doctype)
 
 
 #https://stackoverflow.com/questions/662624/preserve-order-of-attributes-when-modifying-with-minidom
-def parse_ksp_ship(filelike):
+def parse_ksp_ship(filelike,implied_node="CRAFT"):
 
 
     parse_stack = list()
 
     di = DOM.getDOMImplementation()
-    document = di.createDocument(KSP_SHIP_DOCUMENT_NAMESPACE,
-                                                        KSP_SHIP_DOCUMENT_QUALNAME,
-                                                        KSP_SHIP_DOCUMENT_DOCTYPE)
-    #
-    ship_element = document.documentElement
-
-    parse_stack.append(ship_element)
+    document = new_ksp_document(di,implied_node)
+    parse_stack.append(document.documentElement)
 
     my_iter = next_token_iterator(filelike)
     line_no = 0
@@ -71,22 +83,28 @@ def parse_ksp_ship(filelike):
         line_no += 1
         if t_type == LINE_ATTRIBUTE:
             name,value = match.groups()
-
-            if name in multiple_allowed:
+            if name in multiple_allowed[parse_stack[-1].tagName]:
                 an_element = document.createElement(name)
                 a_text_node = document.createTextNode(value)
                 an_element.appendChild(a_text_node)
                 parse_stack[-1].appendChild(an_element)
             else:
-                assert not parse_stack[-1].hasAttribute(name), "name {} repeated line {}: ".format(name,line_no)
+                assert len(parse_stack) > 0, " no stack on line {}, {}".format(line_no,document.toprettyxml())
+                assert not parse_stack[-1].hasAttribute(name), "name {} repeated line {}, context {}: ".format(name,line_no,parse_stack[-1].tagName)
                 parse_stack[-1].setAttribute(name,value)
-
         elif t_type == LINE_ELEMENT_TYPE:
             shouldbeopen,_ = my_iter.next()
             assert shouldbeopen == LINE_OPEN_BRAK
-            an_element = document.createElement(match.groups()[0])
-            parse_stack[-1].appendChild(an_element)
-            parse_stack.append(an_element)
+            line_no += 1
+            if line_no == 2:#NIX the implied element
+                document = new_ksp_document(di,match.groups()[0])
+                parse_stack = list()
+                parse_stack.append(document.documentElement)
+            else:
+                an_element = document.createElement(match.groups()[0])
+                parse_stack[-1].appendChild(an_element)
+                parse_stack.append(an_element)
+            #
         elif t_type == LINE_CLOSE_BRAK:
             #TODO: put a space or emtpy text node in if the element is childless.
             parse_stack.pop()
