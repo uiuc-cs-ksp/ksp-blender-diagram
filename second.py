@@ -28,24 +28,19 @@ foo = imp.import_craft(None,bpy.context,sys.argv[1])
 #Need to remove canopies
 ####
 #Need to handle multiple parachutes
-#deselect all
 def deselect_all():
-    for i in bpy.data.objects:
-        i.select = False
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in bpy.data.objects:
+        obj.select = False
 
+
+#
+#REMOVE PARACHUTE CANOPIES
+#
 deselect_all()
 bpy.data.objects["canopy"].select =True
 bpy.ops.object.delete()
 deselect_all()
-
-_ = """
-#delete invisible objects
-for obj in bpy.data.objects:
-    if (obj.hide or obj.hide_render) and (obj.type == "EMPTY" and len(obj.children) == 0):
-        obj.select = True
-bpy.ops.object.delete()
-
-"""
 
 scene = bpy.data.scenes["Scene"]
 
@@ -60,7 +55,7 @@ lamp_object.rotation_euler = (3.14159/2.0,0.0,3.14159/4.0)
 
 data_cam = bpy.data.cameras["Camera"]
 data_cam.type = "ORTHO"
-data_cam.ortho_scale = 5.0
+data_cam.ortho_scale = 5.0 #will be overwritten later
 
 obj_camera = bpy.data.objects["Camera"]
 obj_camera.location = (0.0,-15.0,-10)
@@ -74,7 +69,7 @@ obj_camera.rotation_euler = (3.14159/2.0,0.0,0.0)
 #
 #https://blender.stackexchange.com/a/51566
 #
-# Select objects that will be rendered
+# Select objects that will be rendered, then zoom the camera to fit them.
 deselect_all()
 for obj in bpy.context.visible_objects:
     if not (obj.hide or obj.hide_render):
