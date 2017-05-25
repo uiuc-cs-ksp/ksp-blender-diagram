@@ -27,48 +27,24 @@ foo = imp.import_craft(None,bpy.context,sys.argv[1])
 
 #Need to remove canopies
 ####
+#Need to handle multiple parachutes
+#deselect all
+def deselect_all():
+    for i in bpy.data.objects:
+        i.select = False
+
+deselect_all()
 bpy.data.objects["canopy"].select =True
 bpy.ops.object.delete()
+deselect_all()
 
 _ = """
-#                          Name,   Data
-o = bpy.data.objects.new( "empty", None )
-bpy.context.scene.objects.link( o )
-foo_list = [i for i in bpy.data.objects if i.parent == None and not i == o]
-for i in foo_list:
-    i.parent = o
-"""
-
-_ = """
-objects_list = [ obj for obj in bpy.data.objects if obj.type in ['MESH']]
-foo_list = [i for i in objects_list if i.parent == None]
-for ob in foo_list:
-    tmp_location = ob.matrix_world * ob.location
-    ob.parent = None
-    ob.location = tmp_location
-
-empty_objects = bpy.ops.object.select_by_type(type="EMPTY")
-foo_list = [i for i in objects_list if ]
+#delete invisible objects
+for obj in bpy.data.objects:
+    if (obj.hide or obj.hide_render) and (obj.type == "EMPTY" and len(obj.children) == 0):
+        obj.select = True
 bpy.ops.object.delete()
 
-active_object = objects_list[0]
-bpy.ops.object.select_by_type(type="MESH")
-bpy.context.scene.objects.active = active_object
-bpy.ops.object.join()
-
-import mathutils
-min_vector = mathutils.Vector([1000,1000,1000])
-max_vector = mathutils.Vector([-1000,-1000,-1000])
-
-meshes_list = [ obj for obj in bpy.data.objects if obj.type in ['MESH']]
-for one_obj in meshes_list:
-    bb_vectors = [one_obj.matrix_world*mathutils.Vector(v) for v in one_obj.bound_box]
-    for i in bb_vectors:
-        min_vector = min(i,min_vector)
-        #max_vector = max(i.location + half_dimension,max_vector) #doesn't work
-        max_vector = -min(-i,-max_vector)
-
-print("min max MESH extents: ", min_vector, max_vector)
 """
 
 scene = bpy.data.scenes["Scene"]
@@ -99,13 +75,12 @@ obj_camera.rotation_euler = (3.14159/2.0,0.0,0.0)
 #https://blender.stackexchange.com/a/51566
 #
 # Select objects that will be rendered
-for obj in bpy.context.scene.objects:
-    obj.select = False
+deselect_all()
 for obj in bpy.context.visible_objects:
     if not (obj.hide or obj.hide_render):
         obj.select = True
 bpy.ops.view3d.camera_to_view_selected()
-
+deselect_all()
 
 bpy.ops.wm.save_as_mainfile(filepath="/data/another.blend")
 if len(sys.argv) >= 3:
