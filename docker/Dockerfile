@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y vim less python3-pip python3-numpy git 
     rm -rf /var/lib/apt/lists/*
 
 RUN cd /root && \
-    git clone https://github.com/galvanized/io_kspblender.git && \
+    git clone https://github.com/uiuc-cs-ksp/io_kspblender.git && \
     git clone https://github.com/taniwha/io_object_mu.git && \
     git clone https://github.com/taniwha/cfgnode.git && \
     git clone https://github.com/uiuc-cs-ksp/ksp-blender-diagram.git && \
