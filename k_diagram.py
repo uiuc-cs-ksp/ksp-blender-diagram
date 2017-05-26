@@ -38,7 +38,13 @@ def deselect_all():
 #REMOVE PARACHUTE CANOPIES
 #
 deselect_all()
-bpy.data.objects["canopy"].select =True
+
+#clean out some useless obejects
+for obj in bpy.data.objects:
+	if obj.type == "CAMERA":
+		continue
+	if obj.name.startswith("node_collider") or obj.name.startswith("canopy"):
+		obj.select = True
 bpy.ops.object.delete()
 deselect_all()
 
