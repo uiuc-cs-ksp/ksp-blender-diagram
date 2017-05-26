@@ -1,3 +1,13 @@
+from argparse import ArgumentParser
+a_parser = ArgumentParser()
+a_parser.add_argument("-s","--stage",type=int,default=1000,help="Remove parts from any stage earlier than this.")
+a_parser.add_argument("-r","--render",type=str,help="Render to the specified png file.")
+a_parser.add_argument("ship_file",help="The ship file to read in.")
+a_parser.add_argument("output_scene",nargs="?",help="If optionally provided, the scene to save to.")
+
+args = a_parser.parse_args()
+
+
 #
 #This path setup stuff is really only needed for the non-installed script, when testing.
 #This should ideally be done with the PYTHONPATH
@@ -5,6 +15,8 @@
 import sys
 sys.path.append("./io_kspblender")
 sys.path.append("./io_object_mu")
+
+
 
 #Import blender
 import bpy
@@ -45,7 +57,7 @@ parent_children_map = dict()
 all_partnames = list()
 parentage_crosses_stage = list()
 
-loaded_config_nodes = ConfigNode.load(open(sys.argv[1],encoding="utf-8").read())
+loaded_config_nodes = ConfigNode.load(open(args.ship_file,encoding="utf-8").read())
 print("Load successful")
 theparts = [p[1] for p in loaded_config_nodes.nodes if p[0] == "PART"]
 
@@ -92,10 +104,19 @@ foo = imp.import_craft(None,bpy.context,sys.argv[1])
 #https://blender.stackexchange.com/a/9204
 #
 for parent_name,its_childrens_names in parent_children_map.items():
+    if not parent_name in bpy.data.objects.keys():
+        print("Object {} ({} children) was not available for reparenting.".format(parent_name,len(its_childrens_names)),
+            file=sys.stderr)
+        continue
+
     deselect_all()
     p_part = bpy.data.objects[parent_name]
     p_part.select = True
     for c_name in its_childrens_names:
+        if not c_name in bpy.data.objects.keys():
+            print("Object {} child of {} was not available for reparenting".format(c_name,parent_name),
+                file=sys.stderr)
+            continue
         c_part = bpy.data.objects[c_name]
         c_part.select = True
 
@@ -187,7 +208,8 @@ bpy.data.worlds["World"].light_settings.use_environment_light = True
 #
 #Output
 #
-bpy.ops.wm.save_as_mainfile(filepath="/data/another.blend")
-if len(sys.argv) >= 3:
-    bpy.context.scene.render.filepath = sys.argv[2]
+if args.output_scene:
+    bpy.ops.wm.save_as_mainfile(filepath=args.output_scene)
+if args.render:
+    bpy.context.scene.render.filepath = args.render
     bpy.ops.render.render(write_still=True)
