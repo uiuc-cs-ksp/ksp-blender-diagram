@@ -1,7 +1,8 @@
 from argparse import ArgumentParser
 a_parser = ArgumentParser()
-a_parser.add_argument("-s","--stage",type=int,default=1000,help="Remove parts from any stage earlier than this.")
+a_parser.add_argument("-s","--stage",type=int,default=None,help="Remove parts from any stage earlier than this.")
 a_parser.add_argument("-r","--render",type=str,help="Render to the specified png file.")
+a_parser.add_argument("--keep_clamps",action="store_true",default=False,help="Keep the launch clamps. (Normally automatically removed.)")
 a_parser.add_argument("ship_file",help="The ship file to read in.")
 a_parser.add_argument("output_scene",nargs="?",help="If optionally provided, the scene to save to.")
 
@@ -49,6 +50,7 @@ import io_kspblender.import_craft as imp
 from cfgnode import ConfigNode
 
 def get_cfg_values(one_node,val_type):
+    assert isinstance(one_node,ConfigNode)
     return [i[1] for i in one_node.values if i[0] == val_type]
 
 part_node_dict = dict()
@@ -79,8 +81,6 @@ for child,parent in child_parent_map.items():
 #Not sure yet, we might need a tree traversal if Blender changes the position of objects while parenting.
 #We'll see.
 #
-
-
 
 #
 #Setup Scene
@@ -150,12 +150,32 @@ for obj in bpy.data.objects:
 #
 deselect_all()
 
+remove_name_prefixes_and_suffixes = ["bodyCollider","ridgecollider","rigidcollider","Collider","collider","node_collider","nodecollider","canopy"]
+
+if not args.keep_clamps:
+    remove_name_prefixes_and_suffixes.append("launchClamp")
+    remove_name_prefixes_and_suffixes.append("launchclamp")
+
 #clean out some useless obejects
+deselect_all()
 for obj in bpy.data.objects:
-	if obj.type == "CAMERA":
-		continue
-	if obj.name.startswith("Collider") or obj.name.startswith("collider") or obj.name.startswith("node_collider") or obj.name.startswith("canopy"):
-		obj.select = True
+    if obj.type == "CAMERA" or obj.type == "LAMP":
+        continue
+    for r_name in remove_name_prefixes_and_suffixes:
+        if obj.name.startswith(r_name) or obj.name.endswith(r_name):
+            obj.select = True
+            bpy.context.scene.objects.active = obj
+            bpy.ops.object.select_hierarchy(direction="CHILD",extend=True)
+
+    if (None != args.stage) and obj.name.split(".")[0] in part_node_dict:
+        my_cfgnode = part_node_dict[obj.name.split(".")[0]]
+        print("DEBUG {}".format(get_cfg_values(my_cfgnode,"sepI")[0]))
+        if int(get_cfg_values(my_cfgnode,"sepI")[0]) >= args.stage:
+            print("Removing {} by staging".format(obj.name))
+            obj.select = True
+            bpy.context.scene.objects.active = obj
+            bpy.ops.object.select_hierarchy(direction="CHILD",extend=True)
+
 bpy.ops.object.delete()
 deselect_all()
 
